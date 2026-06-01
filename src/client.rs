@@ -87,8 +87,8 @@ async fn main() -> Result<()> {
     let connector = TlsConnector::from(Arc::new(config));
     let sock = TcpStream::connect("127.0.0.1:4443").await?;
     let mut tls = connector.connect(server_name, sock).await?;
-    for _ in 0..19 {
-        pingpong(&mut tls).await?
-    }
+    for _ in 0..5 { pingpong(&mut tls).await?; }
+    tls.get_mut().1.refresh_traffic_keys()?;
+    for _ in 5..19 { pingpong(&mut tls).await?; }
     Ok(())
 }

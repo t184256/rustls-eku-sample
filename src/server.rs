@@ -7,7 +7,7 @@ use tokio_rustls::rustls::pki_types::PrivatePkcs8KeyDer;
 use tokio_rustls::{TlsAcceptor, server::TlsStream};
 use anyhow::Result;
 
-async fn pongping(tls: &mut TlsStream<TcpStream>) -> Result<()> {
+async fn pongping(tls: &mut TlsStream<TcpStream>) -> std::io::Result<()> {
     let mut plaintext = String::new();
     tls.read_line(&mut plaintext).await?;
     print!("{}", plaintext);
@@ -39,9 +39,14 @@ async fn main() -> Result<()> {
         let acceptor = acceptor.clone();
         let fut = async move {
             let mut tls = acceptor.accept(tcp_stream).await?;
-            for _ in 0..5 { pongping(&mut tls).await? };
-            tls.get_mut().1.refresh_traffic_keys()?;
-            for _ in 5..19 { pongping(&mut tls).await? };
+            loop {
+                match pongping(&mut tls).await {
+                    Ok(()) => {},
+                    Err(e) if e.kind()
+                        == std::io::ErrorKind::UnexpectedEof => break,
+                    Err(e) => return Err(e.into()),
+                }
+            }
             Ok(()) as Result<()>
         };
         tokio::spawn(async move {
